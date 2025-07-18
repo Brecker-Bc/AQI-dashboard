@@ -40,17 +40,21 @@ st.altair_chart(heatandAQI, use_container_width=True)
 st.subheader("Interactive County Selection")
 
 brush = alt.selection_interval()
+filtered_combined = combined_clean
 
-map_with_brush = alt.Chart(combined_clean).mark_circle(size=60).encode(
+map_with_brush = alt.Chart(combined_clean).transform_filter(
+    state_click
+).transform_filter(
+    brush
+).mark_circle(size=60).encode(
     longitude='longitude:Q',
     latitude='latitude:Q',
-    color=alt.condition(brush,
-                        alt.Color('Median AQI:Q', scale=alt.Scale(scheme='redyellowgreen', reverse=True)),
-                        alt.value('lightgray')),
+    color=alt.Color('Median AQI:Q', scale=alt.Scale(scheme='redyellowgreen', reverse=True)),
     tooltip=['County_Formatted', 'State_y', 'Median AQI', 'Avg Daily Max Heat Index (F)']
-).add_params(brush).properties(
-    title='Select Counties on US Map',
-).project(type='albersUsa').interactive()
+).add_params(brush).project(type='albersUsa').properties(
+    title='Select Counties on US Map'
+).interactive()
+
 
 aqi_max_bar = alt.Chart(combined_clean).transform_filter(brush).transform_aggregate(
     max_aqi='max(Median AQI)', groupby=['County_Formatted']
@@ -86,12 +90,19 @@ st.altair_chart(bar_comparison, use_container_width=True)
 # Drop-down controlled AQI bar chart and heat index bar chart
 st.subheader("State-Level Comparison")
 
+state_click = alt.selection_point(
+    name='StateSelector',
+    fields=['State_y'],
+    bind='legend'  # Optional: or use alt.binding_select()
+)
+
 aqi_metric_dropdown = alt.selection_point(
     name='AQI Metric',
     fields=['AQI Type'],
     bind=alt.binding_select(options=['Median AQI', 'Max AQI'], name='AQI Metric:'),
     value='Median AQI'
 )
+
 
 reshaped = combined.melt(
     id_vars=['State_y'],
@@ -105,13 +116,14 @@ avg_aqi_chart = alt.Chart(reshaped).transform_filter(aqi_metric_dropdown).transf
 ).mark_bar().encode(
     x=alt.X('State_y:N', title='State'),
     y=alt.Y('avg_value:Q', title='Average AQI', scale=alt.Scale(domain=[0, 150])),
-    color=alt.Color('avg_value:Q', scale=alt.Scale(domain=[0, 150], scheme='turbo', reverse=True), title='AQI'),
-    tooltip=[alt.Tooltip('State_y:N', title='State'), alt.Tooltip('avg_value:Q', title='Average AQI')]
-).add_params(aqi_metric_dropdown).properties(
+    color=alt.condition(state_click, 'State_y:N', alt.value('lightgray')),
+    tooltip=[alt.Tooltip('State_y:N'), alt.Tooltip('avg_value:Q')]
+).add_params(aqi_metric_dropdown, state_click).properties(
     title='Average AQI by State',
     width=700,
     height=400
 )
+
 
 avg_heat_by_state = alt.Chart(combined).transform_aggregate(
     avg_heat='mean(Avg Daily Max Heat Index (F))', groupby=['State_y']
