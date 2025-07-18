@@ -43,7 +43,7 @@ st.subheader("Interactive County Selection")
 selected_states = st.multiselect(
     "Select states to filter counties:",
     options=combined_clean['State_y'].unique(),
-    default=["California", "Texas", "Florida"]
+    default=combined_clean['State_y'].unique()[:3].tolist()
 )
 
 # Filter data
