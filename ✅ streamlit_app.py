@@ -84,8 +84,8 @@ heat_max_bar = alt.Chart(filtered_df).transform_aggregate(
 ).transform_window(
     rank='rank(max_heat)',
     sort=[alt.SortField('max_heat', order='descending')]
-).transform_filter(
-    alt.datum.rank == 1
+#).transform_filter(
+    #alt.datum.rank == 1
 ).mark_bar().encode(
     x=alt.X('County_Formatted:N', title='County'),
     y=alt.Y('max_heat:Q', title='Highest Heat Index (°F)'),
