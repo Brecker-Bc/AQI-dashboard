@@ -11,6 +11,14 @@ combined = pd.read_csv('combined_with_lat_lon_and_state.csv')
 combined_clean = combined[['Median AQI', 'Max AQI', 'Avg Daily Max Heat Index (F)', 'longitude', 'latitude', 'County_Formatted', 'State_y']].dropna()
 
 # State-level aggregation
+
+# Ensure these are numeric (coerce errors to NaN)
+combined_clean['Median AQI'] = pd.to_numeric(combined_clean['Median AQI'], errors='coerce')
+combined_clean['Avg Daily Max Heat Index (F)'] = pd.to_numeric(combined_clean['Avg Daily Max Heat Index (F)'], errors='coerce')
+
+# Drop rows with NaN in those key columns
+combined_clean = combined_clean.dropna(subset=['Median AQI', 'Avg Daily Max Heat Index (F)'])
+
 state_avg = combined_clean.groupby('State_y').agg({
     'Median AQI': 'mean',
     'Avg Daily Max Heat Index (F)': 'mean'
