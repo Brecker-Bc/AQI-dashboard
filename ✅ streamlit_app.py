@@ -155,4 +155,4 @@ combined_bars = alt.vconcat(avg_heat_by_state, avg_aqi_chart).resolve_scale(
     y='independent', color='independent'
 )
 
-st.altair_chart(combined_bars, use_container_width=True), whats another option besides state selection, maybe do a map where you can click on state and info comes up. output all code please
+st.altair_chart(combined_bars, use_container_width=True)
