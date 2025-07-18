@@ -37,7 +37,6 @@ heatandAQI = alt.vconcat(aqi_map, heat_map).resolve_scale(color='independent')
 st.altair_chart(heatandAQI, use_container_width=True)
 
 # Interactive selection map and bar comparison
-# Interactive selection map and bar comparison
 st.subheader("Interactive County Selection")
 
 # State filter dropdown
@@ -54,10 +53,59 @@ st.dataframe(filtered_df.head())
 
 # County map (no brush)
 map_with_filter = alt.Chart(filtered_df).mark_circle(size=60).encode(
-    ...
+    longitude='longitude:Q',
+    latitude='latitude:Q',
+    color=alt.Color('Median AQI:Q', scale=alt.Scale(scheme='redyellowgreen', reverse=True)),
+    tooltip=['County_Formatted', 'State_y', 'Median AQI', 'Avg Daily Max Heat Index (F)']
+).properties(
+    title='Select Counties on US Map',
+).project(type='albersUsa')
+
+# AQI max bar chart
+aqi_max_bar = alt.Chart(filtered_df).transform_aggregate(
+    max_aqi='max(Median AQI)',
+    groupby=['County_Formatted']
+).transform_window(
+    rank='rank(max_aqi)',
+    sort=[alt.SortField('max_aqi', order='descending')]
+#).transform_filter(
+    #alt.datum.rank == 1
+).mark_bar().encode(
+    x=alt.X('County_Formatted:N', title='County'),
+    y=alt.Y('max_aqi:Q', title='Highest AQI'),
+    color=alt.value('darkred'),
+    tooltip=[alt.Tooltip('County_Formatted:N'), alt.Tooltip('max_aqi:Q')]
+).properties(title='Highest AQI of Selected Counties')
+
+
+heat_max_bar = alt.Chart(filtered_df).transform_aggregate(
+    max_heat='max(Avg Daily Max Heat Index (F))',
+    groupby=['County_Formatted']
+).transform_window(
+    rank='rank(max_heat)',
+    sort=[alt.SortField('max_heat', order='descending')]
+#).transform_filter(
+    #alt.datum.rank == 1
+).mark_bar().encode(
+    x=alt.X('County_Formatted:N', title='County'),
+    y=alt.Y('max_heat:Q', title='Highest Heat Index (°F)'),
+    color=alt.value('orange'),
+    tooltip=[alt.Tooltip('County_Formatted:N'), alt.Tooltip('max_heat:Q')]
+).properties(title='Highest Heat Index of Selected Counties')
+
+
+bar_comparison = alt.hconcat(aqi_max_bar, heat_max_bar).resolve_scale(y='independent')
+
+interactive_chart = alt.vconcat(
+    map_with_filter,
+    bar_comparison
 )
-...
-st.altair_chart(interactive_chart, use_container_width=True)
+
+if not filtered_df.empty:
+    # build map_with_filter, aqi_max_bar, heat_max_bar...
+    st.altair_chart(interactive_chart, use_container_width=True)
+else:
+    st.warning("No counties match your selection.")
 
 
 # Drop-down controlled AQI bar chart and heat index bar chart
@@ -107,4 +155,4 @@ combined_bars = alt.vconcat(avg_heat_by_state, avg_aqi_chart).resolve_scale(
     y='independent', color='independent'
 )
 
-st.altair_chart(combined_bars, use_container_width=True)
+st.altair_chart(combined_bars, use_container_width=True), whats another option besides state selection, maybe do a map where you can click on state and info comes up. output all code please
