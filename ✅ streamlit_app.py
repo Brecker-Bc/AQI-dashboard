@@ -13,6 +13,13 @@ combined = pd.read_csv('combined_with_lat_lon_and_state.csv')
 combined_clean = combined[['Median AQI', 'Avg Daily Max Heat Index (F)', 'longitude', 'latitude', 'County_Formatted', 'State_y']].dropna()
 
 # Maps side-by-side
+
+state_click = alt.selection_point(
+    name='StateSelector',
+    fields=['State_y'],
+    bind='legend'  # or alt.binding_select() if you want a dropdown instead
+)
+
 st.subheader("County-Level Maps")
 
 aqi_map = alt.Chart(combined).mark_circle().encode(
