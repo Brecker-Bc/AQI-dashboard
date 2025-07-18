@@ -44,7 +44,6 @@ heatandAQI = alt.vconcat(aqi_map, heat_map).resolve_scale(color='independent')
 st.altair_chart(heatandAQI, use_container_width=True)
 
 # Interactive selection map and bar comparison
-st.subheader("Interactive County Selection")
 
 brush = alt.selection_interval()
 filtered_combined = combined_clean
