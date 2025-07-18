@@ -79,7 +79,16 @@ heat_max_bar = alt.Chart(combined_clean).transform_filter(brush).transform_aggre
 ).properties(title='Highest Heat Index of Selected Counties')
 
 bar_comparison = alt.hconcat(aqi_max_bar, heat_max_bar).resolve_scale(y='independent')
-interactive_chart = map_with_brush & bar_comparison
+
+interactive_chart = alt.vconcat(
+    map_with_brush,
+    bar_comparison
+).resolve_legend(
+    color="independent"
+).configure_view(
+    stroke=None
+)
+
 st.altair_chart(interactive_chart, use_container_width=True)
 
 # Drop-down controlled AQI bar chart and heat index bar chart
