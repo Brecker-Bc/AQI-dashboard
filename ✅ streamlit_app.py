@@ -101,7 +101,11 @@ interactive_chart = alt.vconcat(
     bar_comparison
 )
 
-st.altair_chart(interactive_chart, use_container_width=True)
+if not filtered_df.empty:
+    # build map_with_filter, aqi_max_bar, heat_max_bar...
+    st.altair_chart(interactive_chart, use_container_width=True)
+else:
+    st.warning("No counties match your selection.")
 
 
 # Drop-down controlled AQI bar chart and heat index bar chart
