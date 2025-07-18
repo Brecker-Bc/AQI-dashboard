@@ -6,153 +6,87 @@ import pandas as pd
 st.set_page_config(layout="wide")
 st.title("US County-Level Air Quality and Heat Index Dashboard")
 
-# Load datasets
-aqi = pd.read_csv('aqi_with_lat_lon.csv')
-heat = pd.read_csv('heat_with_lat_lon.csv')
+# Load data
 combined = pd.read_csv('combined_with_lat_lon_and_state.csv')
-combined_clean = combined[['Median AQI', 'Avg Daily Max Heat Index (F)', 'longitude', 'latitude', 'County_Formatted', 'State_y']].dropna()
+combined_clean = combined[['Median AQI', 'Max AQI', 'Avg Daily Max Heat Index (F)', 'longitude', 'latitude', 'County_Formatted', 'State_y']].dropna()
 
-# Maps side-by-side
-st.subheader("County-Level Maps")
+# State-level aggregation
+state_avg = combined_clean.groupby('State_y').agg({
+    'Median AQI': 'mean',
+    'Avg Daily Max Heat Index (F)': 'mean'
+}).reset_index()
 
-aqi_map = alt.Chart(combined).mark_circle().encode(
+# Selection: click a state
+state_click = alt.selection_point(fields=["State_y"], bind="legend")
+
+# US state-level AQI map
+state_map = alt.Chart(combined_clean).mark_circle(size=60).encode(
     longitude='longitude:Q',
     latitude='latitude:Q',
     color=alt.Color('Median AQI:Q', scale=alt.Scale(scheme='redyellowgreen', reverse=True)),
-    tooltip=['County_Formatted', 'Median AQI']
+    tooltip=['State_y', 'Median AQI'],
+    opacity=alt.condition(state_click, alt.value(1), alt.value(0.2))
+).add_params(
+    state_click
 ).properties(
-    title='Median AQI by County'
-).project(type='albersUsa')
+    title="Click a State to View County-Level Data"
+).project(type="albersUsa")
 
-heat_map = alt.Chart(combined).mark_circle().encode(
-    longitude='longitude:Q',
-    latitude='latitude:Q',
-    color=alt.Color('Avg Daily Max Heat Index (F):Q', scale=alt.Scale(scheme='inferno')),
-    tooltip=['County_Formatted', 'Avg Daily Max Heat Index (F)']
-).properties(
-    title='Avg Daily Max Heat Index by County'
-).project(type='albersUsa')
+st.altair_chart(state_map, use_container_width=True)
 
-heatandAQI = alt.vconcat(aqi_map, heat_map).resolve_scale(color='independent')
-st.altair_chart(heatandAQI, use_container_width=True)
+# Filter based on state click
+selected_state = state_click.get("State_y") if state_click.get("State_y") else None
 
-# Interactive selection map and bar comparison
-st.subheader("Interactive County Selection")
+if selected_state:
+    filtered_df = combined_clean[combined_clean["State_y"] == selected_state]
+    st.subheader(f"County-Level Data for {selected_state}")
+    st.write(f"Counties found: {len(filtered_df)}")
+    st.dataframe(filtered_df.head())
 
-# State filter dropdown
-selected_states = st.multiselect(
-    "Select states to filter counties:",
-    options=combined_clean['State_y'].unique(),
-    default=combined_clean['State_y'].unique()[:3].tolist()
-)
+    # County Map
+    map_with_filter = alt.Chart(filtered_df).mark_circle(size=60).encode(
+        longitude='longitude:Q',
+        latitude='latitude:Q',
+        color=alt.Color('Median AQI:Q', scale=alt.Scale(scheme='redyellowgreen', reverse=True)),
+        tooltip=['County_Formatted', 'Median AQI', 'Avg Daily Max Heat Index (F)']
+    ).properties(title='County Map').project(type='albersUsa')
 
-# Filter data
-filtered_df = combined_clean[combined_clean['State_y'].isin(selected_states)]
-st.write("Filtered counties:", filtered_df.shape[0])
-st.dataframe(filtered_df.head())
+    # AQI Bar Chart (Top 5)
+    aqi_max_bar = alt.Chart(filtered_df).transform_aggregate(
+        max_aqi='max(Median AQI)',
+        groupby=['County_Formatted']
+    ).transform_window(
+        rank='rank(max_aqi)',
+        sort=[alt.SortField('max_aqi', order='descending')]
+    ).transform_filter(
+        alt.datum.rank <= 5
+    ).mark_bar().encode(
+        x=alt.X('County_Formatted:N', sort='-y', title='County'),
+        y=alt.Y('max_aqi:Q', title='Max AQI'),
+        color=alt.value('darkred'),
+        tooltip=['County_Formatted:N', 'max_aqi:Q']
+    ).properties(title='Top 5 Counties by AQI')
 
-# County map (no brush)
-map_with_filter = alt.Chart(filtered_df).mark_circle(size=60).encode(
-    longitude='longitude:Q',
-    latitude='latitude:Q',
-    color=alt.Color('Median AQI:Q', scale=alt.Scale(scheme='redyellowgreen', reverse=True)),
-    tooltip=['County_Formatted', 'State_y', 'Median AQI', 'Avg Daily Max Heat Index (F)']
-).properties(
-    title='Select Counties on US Map',
-).project(type='albersUsa')
+    # Heat Bar Chart (Top 5)
+    heat_max_bar = alt.Chart(filtered_df).transform_aggregate(
+        max_heat='max(Avg Daily Max Heat Index (F))',
+        groupby=['County_Formatted']
+    ).transform_window(
+        rank='rank(max_heat)',
+        sort=[alt.SortField('max_heat', order='descending')]
+    ).transform_filter(
+        alt.datum.rank <= 5
+    ).mark_bar().encode(
+        x=alt.X('County_Formatted:N', sort='-y', title='County'),
+        y=alt.Y('max_heat:Q', title='Max Heat Index (°F)'),
+        color=alt.value('orange'),
+        tooltip=['County_Formatted:N', 'max_heat:Q']
+    ).properties(title='Top 5 Counties by Heat Index')
 
-# AQI max bar chart
-aqi_max_bar = alt.Chart(filtered_df).transform_aggregate(
-    max_aqi='max(Median AQI)',
-    groupby=['County_Formatted']
-).transform_window(
-    rank='rank(max_aqi)',
-    sort=[alt.SortField('max_aqi', order='descending')]
-#).transform_filter(
-    #alt.datum.rank == 1
-).mark_bar().encode(
-    x=alt.X('County_Formatted:N', title='County'),
-    y=alt.Y('max_aqi:Q', title='Highest AQI'),
-    color=alt.value('darkred'),
-    tooltip=[alt.Tooltip('County_Formatted:N'), alt.Tooltip('max_aqi:Q')]
-).properties(title='Highest AQI of Selected Counties')
+    bar_charts = alt.hconcat(aqi_max_bar, heat_max_bar).resolve_scale(y='independent')
+    full_display = alt.vconcat(map_with_filter, bar_charts)
 
+    st.altair_chart(full_display, use_container_width=True)
 
-heat_max_bar = alt.Chart(filtered_df).transform_aggregate(
-    max_heat='max(Avg Daily Max Heat Index (F))',
-    groupby=['County_Formatted']
-).transform_window(
-    rank='rank(max_heat)',
-    sort=[alt.SortField('max_heat', order='descending')]
-#).transform_filter(
-    #alt.datum.rank == 1
-).mark_bar().encode(
-    x=alt.X('County_Formatted:N', title='County'),
-    y=alt.Y('max_heat:Q', title='Highest Heat Index (°F)'),
-    color=alt.value('orange'),
-    tooltip=[alt.Tooltip('County_Formatted:N'), alt.Tooltip('max_heat:Q')]
-).properties(title='Highest Heat Index of Selected Counties')
-
-
-bar_comparison = alt.hconcat(aqi_max_bar, heat_max_bar).resolve_scale(y='independent')
-
-interactive_chart = alt.vconcat(
-    map_with_filter,
-    bar_comparison
-)
-
-if not filtered_df.empty:
-    # build map_with_filter, aqi_max_bar, heat_max_bar...
-    st.altair_chart(interactive_chart, use_container_width=True)
 else:
-    st.warning("No counties match your selection.")
-
-
-# Drop-down controlled AQI bar chart and heat index bar chart
-st.subheader("State-Level Comparison")
-
-aqi_metric_dropdown = alt.selection_point(
-    name='AQI Metric',
-    fields=['AQI Type'],
-    bind=alt.binding_select(options=['Median AQI', 'Max AQI'], name='AQI Metric:'),
-    value='Median AQI'
-)
-
-reshaped = combined.melt(
-    id_vars=['State_y'],
-    value_vars=['Median AQI', 'Max AQI'],
-    var_name='AQI Type',
-    value_name='AQI Value'
-)
-
-avg_aqi_chart = alt.Chart(reshaped).transform_filter(aqi_metric_dropdown).transform_aggregate(
-    avg_value='mean(AQI Value)', groupby=['State_y']
-).mark_bar().encode(
-    x=alt.X('State_y:N', title='State'),
-    y=alt.Y('avg_value:Q', title='Average AQI', scale=alt.Scale(domain=[0, 150])),
-    color=alt.Color('avg_value:Q', scale=alt.Scale(domain=[0, 150], scheme='turbo', reverse=True), title='AQI'),
-    tooltip=[alt.Tooltip('State_y:N', title='State'), alt.Tooltip('avg_value:Q', title='Average AQI')]
-).add_params(aqi_metric_dropdown).properties(
-    title='Average AQI by State',
-    width=700,
-    height=400
-)
-
-avg_heat_by_state = alt.Chart(combined).transform_aggregate(
-    avg_heat='mean(Avg Daily Max Heat Index (F))', groupby=['State_y']
-).mark_bar().encode(
-    x=alt.X('State_y:N', title='State'),
-    y=alt.Y('avg_heat:Q', title='Average Heat Index (°F)'),
-    color=alt.Color('avg_heat:Q', scale=alt.Scale(scheme='reds'), title='Avg Heat Index (°F)'),
-    tooltip=['State_y:N', 'avg_heat:Q']
-).properties(
-    title='Average Daily Max Heat Index by State',
-    width=700,
-    height=400
-)
-
-combined_bars = alt.vconcat(avg_heat_by_state, avg_aqi_chart).resolve_scale(
-    y='independent', color='independent'
-)
-
-st.altair_chart(combined_bars, use_container_width=True)
+    st.info("Click a state above to see county-level charts and data.")
