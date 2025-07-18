@@ -37,87 +37,28 @@ heatandAQI = alt.vconcat(aqi_map, heat_map).resolve_scale(color='independent')
 st.altair_chart(heatandAQI, use_container_width=True)
 
 # Interactive selection map and bar comparison
+# Interactive selection map and bar comparison
 st.subheader("Interactive County Selection")
 
-# Build clickable state map
-state_summary = combined_clean.groupby('State_y').agg({
-    'Median AQI': 'mean',
-    'longitude': 'mean',
-    'latitude': 'mean'
-}).reset_index()
+# State filter dropdown
+selected_states = st.multiselect(
+    "Select states to filter counties:",
+    options=combined_clean['State_y'].unique(),
+    default=combined_clean['State_y'].unique()[:3].tolist()
+)
 
-state_click = alt.selection_point(fields=["State_y"])
+# Filter data
+filtered_df = combined_clean[combined_clean['State_y'].isin(selected_states)]
+st.write("Filtered counties:", filtered_df.shape[0])
+st.dataframe(filtered_df.head())
 
-clickable_state_map = alt.Chart(state_summary).mark_circle(size=100).encode(
-    longitude='longitude:Q',
-    latitude='latitude:Q',
-    color=alt.Color('Median AQI:Q', scale=alt.Scale(scheme='redyellowgreen', reverse=True)),
-    tooltip=['State_y:N', 'Median AQI:Q'],
-    opacity=alt.condition(state_click, alt.value(1), alt.value(0.3))
-).add_params(
-    state_click
-).properties(
-    title="Click a State to View County-Level Data"
-).project(type='albersUsa')
+# County map (no brush)
+map_with_filter = alt.Chart(filtered_df).mark_circle(size=60).encode(
+    ...
+)
+...
+st.altair_chart(interactive_chart, use_container_width=True)
 
-st.altair_chart(clickable_state_map, use_container_width=True)
-
-# Get clicked state and filter
-selected_state = state_click.get("State_y") if state_click.get("State_y") else None
-
-if selected_state:
-    filtered_df = combined_clean[combined_clean['State_y'] == selected_state]
-    st.subheader(f"County-Level Data for {selected_state}")
-    st.write("Filtered counties:", filtered_df.shape[0])
-    st.dataframe(filtered_df.head())
-
-    # County map (reuses your code)
-    map_with_filter = alt.Chart(filtered_df).mark_circle(size=60).encode(
-        longitude='longitude:Q',
-        latitude='latitude:Q',
-        color=alt.Color('Median AQI:Q', scale=alt.Scale(scheme='redyellowgreen', reverse=True)),
-        tooltip=['County_Formatted', 'State_y', 'Median AQI', 'Avg Daily Max Heat Index (F)']
-    ).properties(
-        title='Selected Counties on US Map',
-    ).project(type='albersUsa')
-
-    # Bar charts (reuse your code)
-    aqi_max_bar = alt.Chart(filtered_df).transform_aggregate(
-        max_aqi='max(Median AQI)',
-        groupby=['County_Formatted']
-    ).transform_window(
-        rank='rank(max_aqi)',
-        sort=[alt.SortField('max_aqi', order='descending')]
-    ).transform_filter(
-        alt.datum.rank <= 5
-    ).mark_bar().encode(
-        x=alt.X('County_Formatted:N', title='County'),
-        y=alt.Y('max_aqi:Q', title='Highest AQI'),
-        color=alt.value('darkred'),
-        tooltip=[alt.Tooltip('County_Formatted:N'), alt.Tooltip('max_aqi:Q')]
-    ).properties(title='Top 5 Counties by AQI')
-
-    heat_max_bar = alt.Chart(filtered_df).transform_aggregate(
-        max_heat='max(Avg Daily Max Heat Index (F))',
-        groupby=['County_Formatted']
-    ).transform_window(
-        rank='rank(max_heat)',
-        sort=[alt.SortField('max_heat', order='descending')]
-    ).transform_filter(
-        alt.datum.rank <= 5
-    ).mark_bar().encode(
-        x=alt.X('County_Formatted:N', title='County'),
-        y=alt.Y('max_heat:Q', title='Highest Heat Index (°F)'),
-        color=alt.value('orange'),
-        tooltip=[alt.Tooltip('County_Formatted:N'), alt.Tooltip('max_heat:Q')]
-    ).properties(title='Top 5 Counties by Heat Index')
-
-    bar_comparison = alt.hconcat(aqi_max_bar, heat_max_bar).resolve_scale(y='independent')
-    interactive_chart = alt.vconcat(map_with_filter, bar_comparison)
-
-    st.altair_chart(interactive_chart, use_container_width=True)
-else:
-    st.info("Click a state above to see county-level data.")
 
 # Drop-down controlled AQI bar chart and heat index bar chart
 st.subheader("State-Level Comparison")
