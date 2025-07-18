@@ -68,8 +68,8 @@ aqi_max_bar = alt.Chart(filtered_df).transform_aggregate(
 ).transform_window(
     rank='rank(max_aqi)',
     sort=[alt.SortField('max_aqi', order='descending')]
-).transform_filter(
-    alt.datum.rank == 1
+#).transform_filter(
+    #alt.datum.rank == 1
 ).mark_bar().encode(
     x=alt.X('County_Formatted:N', title='County'),
     y=alt.Y('max_aqi:Q', title='Highest AQI'),
