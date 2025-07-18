@@ -48,6 +48,8 @@ selected_states = st.multiselect(
 
 # Filter data
 filtered_df = combined_clean[combined_clean['State_y'].isin(selected_states)]
+st.write("Filtered counties:", filtered_df.shape[0])
+st.dataframe(filtered_df.head())
 
 # County map (no brush)
 map_with_filter = alt.Chart(filtered_df).mark_circle(size=60).encode(
