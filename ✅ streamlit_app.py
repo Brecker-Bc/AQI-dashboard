@@ -124,12 +124,18 @@ reshaped = combined.melt(
     value_name='AQI Value'
 )
 
+st.markdown("ℹ️ **Tip:** Select a two-letter state code in the legend to highlight its bar.")
+
 avg_aqi_chart = alt.Chart(reshaped).transform_filter(aqi_metric_dropdown).transform_aggregate(
     avg_value='mean(AQI Value)', groupby=['State_y']
 ).mark_bar().encode(
     y=alt.Y('State_y:N', title='State', sort='-x'),
     x=alt.X('avg_value:Q', title='Average AQI', scale=alt.Scale(domain=[0, 150])),
-    color=alt.condition(state_click, 'State_y:N', alt.value('lightgray')),
+    color=alt.condition(
+        state_click,
+        alt.Color('State_y:N', legend=alt.Legend(title="State", columns=1, symbolLimit=100)),
+        alt.value('lightgray')
+    ),
     tooltip=[
         alt.Tooltip('State_y:N'),
         alt.Tooltip('avg_value:Q', format='.1f')
@@ -139,6 +145,7 @@ avg_aqi_chart = alt.Chart(reshaped).transform_filter(aqi_metric_dropdown).transf
     width=600,
     height=800
 )
+
 
 avg_heat_by_state = alt.Chart(combined).transform_aggregate(
     avg_heat='mean(Avg Daily Max Heat Index (F))', groupby=['State_y']
