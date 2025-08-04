@@ -117,7 +117,7 @@ aqi_metric_dropdown = alt.selection_point(
 avg_aqi_chart = alt.Chart(reshaped).transform_filter(aqi_metric_dropdown).transform_aggregate(
     avg_value='mean(AQI Value)', groupby=['State_y']
 ).mark_bar().encode(
-    y=alt.Y('State_y:N', title='State', sort='-x', axis=alt.Axis(labelLimit=1000))
+    y=alt.Y('State_y:N', title='State', sort='-x', axis=alt.Axis(labelLimit=1000)),
     x=alt.X('avg_value:Q', title='Average AQI', scale=alt.Scale(domain=[0, 150])),
     color=alt.condition(
         state_click,
@@ -138,7 +138,7 @@ heat_state_df = states_df[['State_y']].merge(heat_state_df, on='State_y', how='l
 avg_heat_by_state = alt.Chart(heat_state_df).transform_aggregate(
     avg_heat='mean(Avg Daily Max Heat Index (F))', groupby=['State_y']
 ).mark_bar().encode(
-    y=alt.Y('State_y:N', title='State', sort='-x', axis=alt.Axis(labelLimit=1000))
+    y=alt.Y('State_y:N', title='State', sort='-x', axis=alt.Axis(labelLimit=1000)),
     x=alt.X('avg_heat:Q', title='Average Heat Index (°F)'),
     color=alt.Color('avg_heat:Q', scale=alt.Scale(scheme='redyellowgreen', reverse=True), title='Avg Heat Index (°F)'),
     tooltip=[alt.Tooltip('State_y:N'), alt.Tooltip('avg_heat:Q', format='.1f')]
