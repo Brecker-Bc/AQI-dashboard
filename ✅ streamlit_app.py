@@ -2,11 +2,9 @@ import streamlit as st
 import altair as alt
 import pandas as pd
 
-# Page setup
 st.set_page_config(layout="wide")
 st.title("US County-Level Air Quality and Heat Index Dashboard")
 
-# Definitions
 st.markdown("""
 ### What Do These Metrics Mean?
 
@@ -17,13 +15,11 @@ st.markdown("""
 ---
 """)
 
-# Load datasets
 aqi = pd.read_csv('aqi_with_lat_lon.csv')
 heat = pd.read_csv('heat_with_lat_lon.csv')
 combined = pd.read_csv('combined_with_lat_lon_and_state.csv')
 combined_clean = combined[['Median AQI', 'Avg Daily Max Heat Index (F)', 'longitude', 'latitude', 'County_Formatted', 'State_y']].dropna()
 
-# County-level maps
 st.subheader("County-Level Maps")
 
 aqi_map = alt.Chart(combined).mark_circle().encode(
@@ -42,7 +38,6 @@ heat_map = alt.Chart(combined).mark_circle().encode(
 
 st.altair_chart(alt.vconcat(aqi_map, heat_map).resolve_scale(color='independent'), use_container_width=True)
 
-# Interactive brush + bar comparison
 st.markdown("ℹ️ **Tip:** Select counties on the map or click a legend item to filter data by state.")
 
 brush = alt.selection_interval()
@@ -94,14 +89,11 @@ heat_max_bar = alt.Chart(combined_clean).transform_filter(brush).transform_aggre
 st.altair_chart(map_with_brush, use_container_width=True)
 st.altair_chart(alt.hconcat(aqi_max_bar, heat_max_bar).resolve_scale(x='independent'), use_container_width=True)
 
-# State-level comparison
 st.subheader("State-Level Comparison")
 st.markdown("ℹ️ **Tip:** Select a two-letter state code in the legend to highlight its bar.")
 
-# Ensure full list of states is represented
 all_states = pd.read_csv("https://raw.githubusercontent.com/jasonong/List-of-US-States/master/states.csv")  # columns: State, Abbreviation
 
-# Merge to ensure all states present
 states_df = all_states.rename(columns={'Abbreviation': 'State_y'})
 reshaped = combined[['State_y', 'Median AQI', 'Max AQI']].copy()
 reshaped = reshaped.melt(id_vars=['State_y'], value_vars=['Median AQI', 'Max AQI'], var_name='AQI Type', value_name='AQI Value')
@@ -132,7 +124,6 @@ avg_aqi_chart = alt.Chart(reshaped).transform_filter(aqi_metric_dropdown).transf
     height=800
 )
 
-# Heat index by state (ensure complete state list)
 heat_state_df = combined[['State_y', 'Avg Daily Max Heat Index (F)']].copy()
 heat_state_df = states_df[['State_y']].merge(heat_state_df, on='State_y', how='left')
 
