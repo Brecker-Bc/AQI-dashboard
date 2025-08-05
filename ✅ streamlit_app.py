@@ -147,3 +147,15 @@ st.altair_chart(combined_bars, use_container_width=True)
 top10 = combined_clean.nlargest(10, 'Median AQI')[['County_Formatted', 'State_y', 'Median AQI', 'Avg Daily Max Heat Index (F)']]
 st.subheader("Top 10 Counties by AQI")
 st.dataframe(top10)
+
+aqi_category_cols = ['Good Days', 'Moderate Days', 'Unhealthy for Sensitive Groups Days', 'Unhealthy Days']
+aqi_totals = combined[aqi_category_cols].sum().reset_index()
+aqi_totals.columns = ['Category', 'Days']
+
+aqi_cat_chart = alt.Chart(aqi_totals).mark_bar().encode(
+    x='Days:Q',
+    y=alt.Y('Category:N', sort='-x'),
+    color='Category:N'
+).properties(title='Total Days by AQI Category')
+
+st.altair_chart(aqi_cat_chart, use_container_width=True)
