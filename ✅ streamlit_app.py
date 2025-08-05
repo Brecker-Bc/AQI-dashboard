@@ -148,14 +148,24 @@ top10 = combined_clean.nlargest(10, 'Median AQI')[['County_Formatted', 'State_y'
 st.subheader("Top 10 Counties by AQI")
 st.dataframe(top10)
 
-aqi_category_cols = ['Good Days', 'Moderate Days', 'Unhealthy for Sensitive Groups Days', 'Unhealthy Days']
+# Sum up days for each AQI category
+aqi_category_cols = [
+    'Good Days', 
+    'Moderate Days', 
+    'Unhealthy for Sensitive Groups Days', 
+    'Unhealthy Days'
+]
+
 aqi_totals = combined[aqi_category_cols].sum().reset_index()
 aqi_totals.columns = ['Category', 'Days']
 
-aqi_cat_chart = alt.Chart(aqi_totals).mark_bar().encode(
-    x='Days:Q',
-    y=alt.Y('Category:N', sort='-x'),
-    color='Category:N'
-).properties(title='Total Days by AQI Category')
+# Create a pie chart
+aqi_pie = alt.Chart(aqi_totals).mark_arc().encode(
+    theta=alt.Theta(field="Days", type="quantitative"),
+    color=alt.Color(field="Category", type="nominal", legend=alt.Legend(title="AQI Category")),
+    tooltip=['Category', alt.Tooltip('Days:Q', format=',')]
+).properties(
+    title="Proportion of Days by AQI Category"
+)
 
-st.altair_chart(aqi_cat_chart, use_container_width=True)
+st.altair_chart(aqi_pie, use_container_width=True)
