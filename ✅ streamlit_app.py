@@ -143,3 +143,7 @@ avg_heat_by_state = alt.Chart(heat_state_df).transform_aggregate(
 
 combined_bars = alt.vconcat(avg_heat_by_state, avg_aqi_chart).resolve_scale(x='independent', color='independent')
 st.altair_chart(combined_bars, use_container_width=True)
+
+top10 = combined_clean.nlargest(10, 'Median AQI')[['County_Formatted', 'State_y', 'Median AQI', 'Avg Daily Max Heat Index (F)']]
+st.subheader("Top 10 Counties by AQI")
+st.dataframe(top10)
