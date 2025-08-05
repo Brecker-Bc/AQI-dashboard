@@ -148,7 +148,13 @@ top10 = combined_clean.nlargest(10, 'Median AQI')[['County_Formatted', 'State_y'
 st.subheader("Top 10 Counties by AQI")
 st.dataframe(top10)
 
-# Sum up days for each AQI category
+# --- DROPDOWN TOGGLE ---
+view_option = st.selectbox(
+    "Select view:",
+    ["All Counties", "Top 10 Worst Counties (by Median AQI)"]
+)
+
+# Columns for AQI categories
 aqi_category_cols = [
     'Good Days', 
     'Moderate Days', 
@@ -156,10 +162,16 @@ aqi_category_cols = [
     'Unhealthy Days'
 ]
 
-aqi_totals = combined[aqi_category_cols].sum().reset_index()
+# Filter data based on selection
+if view_option == "Top 10 Worst Counties (by Median AQI)":
+    top10_df = combined.nlargest(10, 'Median AQI')
+    aqi_totals = top10_df[aqi_category_cols].sum().reset_index()
+else:
+    aqi_totals = combined[aqi_category_cols].sum().reset_index()
+
 aqi_totals.columns = ['Category', 'Days']
 
-# Define high-contrast colors for each category
+# High-contrast colors
 aqi_colors = [
     '#2ca02c',  # Good Days - green
     '#1f77b4',  # Moderate Days - blue
@@ -167,7 +179,7 @@ aqi_colors = [
     '#d62728'   # Unhealthy Days - red
 ]
 
-# Create pie chart
+# Pie chart
 aqi_pie = alt.Chart(aqi_totals).mark_arc().encode(
     theta=alt.Theta(field="Days", type="quantitative"),
     color=alt.Color(
@@ -178,7 +190,7 @@ aqi_pie = alt.Chart(aqi_totals).mark_arc().encode(
     ),
     tooltip=['Category', alt.Tooltip('Days:Q', format=',')]
 ).properties(
-    title="Proportion of Days by AQI Category"
+    title=f"Proportion of Days by AQI Category ({view_option})"
 )
 
 st.altair_chart(aqi_pie, use_container_width=True)
