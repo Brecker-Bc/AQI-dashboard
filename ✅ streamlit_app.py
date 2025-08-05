@@ -159,10 +159,23 @@ aqi_category_cols = [
 aqi_totals = combined[aqi_category_cols].sum().reset_index()
 aqi_totals.columns = ['Category', 'Days']
 
-# Create a pie chart
+# Define high-contrast colors for each category
+aqi_colors = [
+    '#2ca02c',  # Good Days - green
+    '#1f77b4',  # Moderate Days - blue
+    '#ff7f0e',  # Unhealthy for Sensitive Groups - orange
+    '#d62728'   # Unhealthy Days - red
+]
+
+# Create pie chart
 aqi_pie = alt.Chart(aqi_totals).mark_arc().encode(
     theta=alt.Theta(field="Days", type="quantitative"),
-    color=alt.Color(field="Category", type="nominal", legend=alt.Legend(title="AQI Category")),
+    color=alt.Color(
+        field="Category", 
+        type="nominal", 
+        scale=alt.Scale(domain=aqi_totals['Category'].tolist(), range=aqi_colors),
+        legend=alt.Legend(title="AQI Category")
+    ),
     tooltip=['Category', alt.Tooltip('Days:Q', format=',')]
 ).properties(
     title="Proportion of Days by AQI Category"
