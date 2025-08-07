@@ -15,15 +15,11 @@ st.markdown("""
 ---
 """)
 
-# --- Data ---
 aqi = pd.read_csv('aqi_with_lat_lon.csv')
 heat = pd.read_csv('heat_with_lat_lon.csv')
 combined = pd.read_csv('combined_with_lat_lon_and_state.csv')
+combined_clean = combined[['Median AQI', 'Avg Daily Max Heat Index (F)', 'longitude', 'latitude', 'County_Formatted', 'State_y']].dropna()
 
-combined_clean = combined[['Median AQI', 'Avg Daily Max Heat Index (F)',
-                           'longitude', 'latitude', 'County_Formatted', 'State_y']].dropna()
-
-# --- County maps ---
 st.subheader("County-Level Maps")
 
 aqi_map = alt.Chart(combined).mark_circle().encode(
@@ -36,29 +32,18 @@ aqi_map = alt.Chart(combined).mark_circle().encode(
 heat_map = alt.Chart(combined).mark_circle().encode(
     longitude='longitude:Q',
     latitude='latitude:Q',
-    color=alt.Color('Avg Daily Max Heat Index (F):Q',
-                    scale=alt.Scale(scheme='redyellowgreen', reverse=True)),
+    color=alt.Color('Avg Daily Max Heat Index (F):Q', scale=alt.Scale(scheme='redyellowgreen', reverse=True)),
     tooltip=['County_Formatted', alt.Tooltip('Avg Daily Max Heat Index (F):Q', format='.1f')]
 ).properties(title='Avg Daily Max Heat Index by County').project(type='albersUsa')
 
-st.altair_chart(alt.vconcat(aqi_map, heat_map).resolve_scale(color='independent'),
-                use_container_width=True)
+st.altair_chart(alt.vconcat(aqi_map, heat_map).resolve_scale(color='independent'), use_container_width=True)
 
 st.markdown("ℹ️ **Tip:** Select counties on the map or click a legend item to filter data by state.")
 
-# --- Interactive selections ---
 brush = alt.selection_interval()
+# Updated State multi-selection for comparison
+state_click = alt.selection_multi(name='StateSelector', fields=['State_y'], bind='legend')
 
-# MULTI select via legend toggle
-state_click = alt.selection_point(
-    name='StateSelector',
-    fields=['State_y'],
-    bind='legend',
-    toggle=True,
-    empty='all'
-)
-
-# Map filtered by brush and selected states (selection bound to legend on state charts)
 map_with_brush = alt.Chart(combined_clean).transform_filter(
     state_click
 ).transform_filter(
@@ -72,11 +57,10 @@ map_with_brush = alt.Chart(combined_clean).transform_filter(
         alt.Tooltip('Median AQI:Q', format='.1f'),
         alt.Tooltip('Avg Daily Max Heat Index (F):Q', format='.1f')
     ]
-).add_params(brush).project(type='albersUsa').properties(
+).add_params(brush, state_click).project(type='albersUsa').properties(
     title='Select Counties in Multiple States'
 ).interactive()
 
-# Highest-of-selected bars
 aqi_max_bar = alt.Chart(combined_clean).transform_filter(brush).transform_aggregate(
     max_aqi='max(Median AQI)', groupby=['County_Formatted']
 ).transform_window(
@@ -104,28 +88,17 @@ heat_max_bar = alt.Chart(combined_clean).transform_filter(brush).transform_aggre
 ).properties(title='Highest Heat Index of Selected Counties')
 
 st.altair_chart(map_with_brush, use_container_width=True)
-st.altair_chart(alt.hconcat(aqi_max_bar, heat_max_bar).resolve_scale(x='independent'),
-                use_container_width=True)
+st.altair_chart(alt.hconcat(aqi_max_bar, heat_max_bar).resolve_scale(x='independent'), use_container_width=True)
 
-# --- State-level comparison ---
 st.subheader("State-Level Comparison")
-st.markdown("ℹ️ **Tip:** Click multiple state codes in the legend to toggle them on/off.")
+st.markdown("ℹ️ **Tip:** Select a two-letter state code in the legend to highlight its bar.")
 
-all_states = pd.read_csv(
-    "https://raw.githubusercontent.com/jasonong/List-of-US-States/master/states.csv"
-)  # columns: State, Abbreviation
+all_states = pd.read_csv("https://raw.githubusercontent.com/jasonong/List-of-US-States/master/states.csv")  # columns: State, Abbreviation
 
 states_df = all_states.rename(columns={'Abbreviation': 'State_y'})
-
 reshaped = combined[['State_y', 'Median AQI', 'Max AQI']].copy()
-reshaped = reshaped.melt(
-    id_vars=['State_y'],
-    value_vars=['Median AQI', 'Max AQI'],
-    var_name='AQI Type',
-    value_name='AQI Value'
-)
-# Ensure all states appear (even with missing data)
-reshaped = states_df[['State_y']].merge(reshaped, on='State_y', how='left')
+reshaped = reshaped.melt(id_vars=['State_y'], value_vars=['Median AQI', 'Max AQI'], var_name='AQI Type', value_name='AQI Value')
+reshaped = states_df[['State_y']].merge(reshaped, on='State_y', how='left')  # ensures all states present
 
 aqi_metric_dropdown = alt.selection_point(
     name='AQI Metric',
@@ -134,12 +107,11 @@ aqi_metric_dropdown = alt.selection_point(
     value='Median AQI'
 )
 
-# Average AQI by state (legend hosts the multi-select)
 avg_aqi_chart = alt.Chart(reshaped).transform_filter(aqi_metric_dropdown).transform_aggregate(
     avg_value='mean(AQI Value)', groupby=['State_y']
 ).mark_bar().encode(
     y=alt.Y('State_y:N', title='State', sort='-x',
-            axis=alt.Axis(labelFontSize=10, labelLimit=1000, labelOverlap=False)),
+        axis=alt.Axis(labelFontSize=10, labelLimit=1000, labelOverlap=False)),
     x=alt.X('avg_value:Q', title='Average AQI', scale=alt.Scale(domain=[0, 150])),
     color=alt.condition(
         state_click,
@@ -153,7 +125,6 @@ avg_aqi_chart = alt.Chart(reshaped).transform_filter(aqi_metric_dropdown).transf
     height=800
 )
 
-# Heat index by state (filtered/highlighted by same state selection)
 heat_state_df = combined[['State_y', 'Avg Daily Max Heat Index (F)']].copy()
 heat_state_df = states_df[['State_y']].merge(heat_state_df, on='State_y', how='left')
 
@@ -161,44 +132,38 @@ avg_heat_by_state = alt.Chart(heat_state_df).transform_aggregate(
     avg_heat='mean(Avg Daily Max Heat Index (F))', groupby=['State_y']
 ).mark_bar().encode(
     y=alt.Y('State_y:N', title='State', sort='-x',
-            axis=alt.Axis(labelFontSize=10, labelLimit=1000, labelOverlap=False)),
+        axis=alt.Axis(labelFontSize=10, labelLimit=1000, labelOverlap=False)),
     x=alt.X('avg_heat:Q', title='Average Heat Index (°F)'),
-    color=alt.condition(
-        state_click,
-        alt.Color('State_y:N', legend=None),  # use same selection; legend lives on the AQI chart
-        alt.value('lightgray')
-    ),
+    color=alt.Color('avg_heat:Q', scale=alt.Scale(scheme='redyellowgreen', reverse=True), title='Avg Heat Index (°F)'),
     tooltip=[alt.Tooltip('State_y:N'), alt.Tooltip('avg_heat:Q', format='.1f')]
-).add_params(state_click).properties(
+).properties(
     title='Average Daily Max Heat Index by State',
     width=600,
     height=800
 )
 
-combined_bars = alt.vconcat(avg_heat_by_state, avg_aqi_chart).resolve_scale(
-    x='independent', color='independent'
-)
+combined_bars = alt.vconcat(avg_heat_by_state, avg_aqi_chart).resolve_scale(x='independent', color='independent')
 st.altair_chart(combined_bars, use_container_width=True)
 
-# --- Top 10 table ---
-top10 = combined_clean.nlargest(10, 'Median AQI')[['County_Formatted', 'State_y',
-                                                   'Median AQI', 'Avg Daily Max Heat Index (F)']]
+top10 = combined_clean.nlargest(10, 'Median AQI')[['County_Formatted', 'State_y', 'Median AQI', 'Avg Daily Max Heat Index (F)']]
 st.subheader("Top 10 Counties by AQI")
 st.dataframe(top10)
 
-# --- AQI Category pie with toggle ---
+# --- DROPDOWN TOGGLE ---
 view_option = st.selectbox(
     "Select view:",
     ["All Counties", "Top 10 Worst Counties (by Median AQI)"]
 )
 
+# Columns for AQI categories
 aqi_category_cols = [
-    'Good Days',
-    'Moderate Days',
-    'Unhealthy for Sensitive Groups Days',
+    'Good Days', 
+    'Moderate Days', 
+    'Unhealthy for Sensitive Groups Days', 
     'Unhealthy Days'
 ]
 
+# Filter data based on selection
 if view_option == "Top 10 Worst Counties (by Median AQI)":
     top10_df = combined.nlargest(10, 'Median AQI')
     aqi_totals = top10_df[aqi_category_cols].sum().reset_index()
@@ -207,18 +172,20 @@ else:
 
 aqi_totals.columns = ['Category', 'Days']
 
+# High-contrast colors
 aqi_colors = [
-    '#2ca02c',  # Good
-    '#1f77b4',  # Moderate
-    '#ff7f0e',  # Unhealthy for Sensitive Groups
-    '#d62728'   # Unhealthy
+    '#2ca02c',  # Good Days - green
+    '#1f77b4',  # Moderate Days - blue
+    '#ff7f0e',  # Unhealthy for Sensitive Groups - orange
+    '#d62728'   # Unhealthy Days - red
 ]
 
+# Pie chart
 aqi_pie = alt.Chart(aqi_totals).mark_arc().encode(
     theta=alt.Theta(field="Days", type="quantitative"),
     color=alt.Color(
-        field="Category",
-        type="nominal",
+        field="Category", 
+        type="nominal", 
         scale=alt.Scale(domain=aqi_totals['Category'].tolist(), range=aqi_colors),
         legend=alt.Legend(title="AQI Category")
     ),
