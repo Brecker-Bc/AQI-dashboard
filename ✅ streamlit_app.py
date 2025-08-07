@@ -31,16 +31,16 @@ def load_and_clean():
         inplace=True
     )
 
-    # --- ensure Max AQI exists; fall back to Median AQI if missing ---
+    # 3) Ensure Max AQI exists; fall back to Median AQI if missing
     if 'Max AQI' not in combined.columns and 'Median AQI' in combined.columns:
         combined['Max AQI'] = combined['Median AQI']
 
-    # 3) Force key columns to numeric
+    # 4) Force key columns to numeric
     for col in ["Median AQI", "Max AQI", "Avg Daily Max Heat Index (F)", "longitude", "latitude"]:
         if col in combined.columns:
             combined[col] = pd.to_numeric(combined[col], errors='coerce')
 
-    # 4) Build a clean county-level frame (include Max AQI)
+    # 5) Build a clean county-level frame (include Max AQI)
     expected_cols = [
         'Median AQI', 'Max AQI',
         'Avg Daily Max Heat Index (F)', 'longitude', 'latitude',
@@ -64,7 +64,7 @@ def load_and_clean():
 aqi, heat, combined, combined_clean = load_and_clean()
 
 # ===============================
-# Colors (default Altair background)
+# Colors (default Altair background; no white override)
 # ===============================
 AQI_COLOR_CONT  = alt.Scale(scheme='redyellowgreen', reverse=True)  # higher/worse -> red
 HEAT_COLOR_CONT = alt.Scale(scheme='redyellowgreen', reverse=True)
@@ -291,12 +291,33 @@ if len(df) > 0:
 else:
     st.info("No rows match the current filters.")
 
+# ===============================
+# AQI Category Composition — Pie (Filtered)  [robust to missing cols]
+# ===============================
 st.subheader("AQI Category Composition — Pie (Filtered)")
 
-aqi_category_cols = ['Good Days', 'Moderate Days', 'Unhealthy for Sensitive Groups Days', 'Unhealthy Days']
-have_all_cats = all(col in combined.columns for col in aqi_category_cols)
+aqi_category_cols = [
+    'Good Days',
+    'Moderate Days',
+    'Unhealthy for Sensitive Groups Days',
+    'Unhealthy Days'
+]
 
-if have_all_cats:
+present_cols = [c for c in aqi_category_cols if c in combined.columns]
+
+if len(present_cols) == 0:
+    st.info("AQI category columns not found in the dataset; skipping pie chart.")
+else:
+    # Filtered county keys
+    if len(df) > 0:
+        filtered_keys = df[['County_Formatted', 'State_y']].drop_duplicates()
+    else:
+        filtered_keys = combined_clean[['County_Formatted', 'State_y']].head(0)  # empty
+
+    # Merge to bring in category columns from combined
+    cat_base = combined[['County_Formatted', 'State_y'] + present_cols].copy()
+    cat_filtered = filtered_keys.merge(cat_base, on=['County_Formatted', 'State_y'], how='inner')
+
     view_option = st.selectbox(
         "Select view:",
         ["All Counties (Filtered)", "Top 10 Worst Counties (by Median AQI, Filtered)"]
@@ -304,33 +325,34 @@ if have_all_cats:
 
     if view_option == "Top 10 Worst Counties (by Median AQI, Filtered)":
         if len(df) > 0:
-            top10_df = df.nlargest(10, 'Median AQI')
-            aqi_totals = top10_df[aqi_category_cols].sum().reset_index()
+            top10_df = df.nlargest(10, 'Median AQI')[['County_Formatted', 'State_y']]
+            cat_view = top10_df.merge(cat_base, on=['County_Formatted', 'State_y'], how='left')
         else:
-            aqi_totals = pd.DataFrame({'Category': aqi_category_cols, 'Days': 0})
+            cat_view = pd.DataFrame(columns=['County_Formatted', 'State_y'] + present_cols)
     else:
-        if len(df) > 0:
-            aqi_totals = df[aqi_category_cols].sum().reset_index()
-        else:
-            aqi_totals = pd.DataFrame({'Category': aqi_category_cols, 'Days': 0})
+        cat_view = cat_filtered
 
-    aqi_totals.columns = ['Category', 'Days']
-    aqi_colors = ['#2ca02c', '#1f77b4', '#ff7f0e', '#d62728']  # green, blue, orange, red
+    if cat_view.empty:
+        st.info("No rows match the current filters for the pie chart.")
+    else:
+        aqi_totals = cat_view[present_cols].sum().reset_index()
+        aqi_totals.columns = ['Category', 'Days']
 
-    aqi_pie = alt.Chart(aqi_totals).mark_arc().encode(
-        theta=alt.Theta(field="Days", type="quantitative"),
-        color=alt.Color(
-            field="Category",
-            type="nominal",
-            scale=alt.Scale(domain=aqi_totals['Category'].tolist(), range=aqi_colors),
-            legend=alt.Legend(title="AQI Category")
-        ),
-        tooltip=['Category', alt.Tooltip('Days:Q', format=',')]
-    ).properties(
-        title=f"Proportion of Days by AQI Category ({view_option})",
-        width=500, height=420
-    )
+        # color list length matched to present columns
+        aqi_colors = ['#2ca02c', '#1f77b4', '#ff7f0e', '#d62728'][:len(present_cols)]
 
-    st.altair_chart(aqi_pie, use_container_width=True)
-else:
-    st.info("AQI category columns not found; skipping pie chart.")
+        aqi_pie = alt.Chart(aqi_totals).mark_arc().encode(
+            theta=alt.Theta(field="Days", type="quantitative"),
+            color=alt.Color(
+                field="Category",
+                type="nominal",
+                scale=alt.Scale(domain=aqi_totals['Category'].tolist(), range=aqi_colors),
+                legend=alt.Legend(title="AQI Category")
+            ),
+            tooltip=['Category', alt.Tooltip('Days:Q', format=',')]
+        ).properties(
+            title=f"Proportion of Days by AQI Category ({view_option})",
+            width=500, height=420
+        )
+
+        st.altair_chart(aqi_pie, use_container_width=True)
