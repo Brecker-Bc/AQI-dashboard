@@ -41,7 +41,8 @@ st.altair_chart(alt.vconcat(aqi_map, heat_map).resolve_scale(color='independent'
 st.markdown("ℹ️ **Tip:** Select counties on the map or click a legend item to filter data by state.")
 
 brush = alt.selection_interval()
-state_click = alt.selection_point(name='StateSelector', fields=['State_y'], bind='legend')
+# Updated State multi-selection for comparison
+state_click = alt.selection_multi(name='StateSelector', fields=['State_y'], bind='legend')
 
 map_with_brush = alt.Chart(combined_clean).transform_filter(
     state_click
@@ -56,8 +57,8 @@ map_with_brush = alt.Chart(combined_clean).transform_filter(
         alt.Tooltip('Median AQI:Q', format='.1f'),
         alt.Tooltip('Avg Daily Max Heat Index (F):Q', format='.1f')
     ]
-).add_params(brush).project(type='albersUsa').properties(
-    title='Select Counties on US Map'
+).add_params(brush, state_click).project(type='albersUsa').properties(
+    title='Select Counties in Multiple States'
 ).interactive()
 
 aqi_max_bar = alt.Chart(combined_clean).transform_filter(brush).transform_aggregate(
