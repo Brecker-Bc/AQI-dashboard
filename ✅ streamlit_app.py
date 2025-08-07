@@ -7,6 +7,16 @@ import pandas as pd
 # ===============================
 st.set_page_config(layout="wide", page_title="US County-Level AQI & Heat")
 
+alt.themes.register('transparent', lambda: {
+    "config": {
+        "background": None,
+        "view": {"stroke": None},
+        "axis": {"gridColor": "lightgray"}
+    }
+})
+alt.themes.enable('transparent')
+
+
 # ===============================
 # Data Loading (cached) + Cleaning
 # ===============================
